@@ -14,6 +14,7 @@ from main.utils import success_response, error_response
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework import serializers
 from main.order import OrderService
+from main.shipment import ShipmentService
 
 
 # Create your views here.
@@ -99,7 +100,7 @@ class OrderAPIViewSet(ViewSet):
 
 class PaymentWebhookAPIViewset(ViewSet):
 
-    def receive_webhook(self, request):
+    def handle_webhook(self, request):
 
         order_id = request.data.get('order_id')
 
@@ -109,5 +110,16 @@ class PaymentWebhookAPIViewset(ViewSet):
             if status:
                 # Here send socket event to user that payment is received and order has been placed.
                 pass
+
+        return success_response(status=HTTP_200_OK)
+    
+
+class ShipmentWebhookAPIViewset(ViewSet):
+
+    def handle_webhook(self, request):
+
+        shipment_id = request.data.get('shipment_id')
+        shipment = Shipment.objects.filter(id=shipment_id).first()
+        ShipmentService().sync_status_accross_shipment_and_order(data=request.data, shipment=shipment)
 
         return success_response(status=HTTP_200_OK)

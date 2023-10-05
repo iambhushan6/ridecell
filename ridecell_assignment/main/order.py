@@ -3,7 +3,15 @@ from typing import List
 from main.payment import PaymentService
 from django.db import transaction
 from main.shipment import ShipmentService
+
+
 class OrderService:
+    '''
+    This service handles critical functionalities:
+    1. process of validating order from cart data
+    2. Converting cart data to order placement
+    3. Calling different services according to logic and keeping a log.
+    '''
 
     def __init__(self, order_id:int = None) -> None:
         self.order_id = order_id
@@ -36,6 +44,7 @@ class OrderService:
         return
 
     def validate_order(self, cart_data: List[Cart]):
+        # Validate incoming cart input data and make lineitems and lineitemmetas accordingly.
 
         for cart in cart_data:
             product = cart.product
@@ -80,6 +89,7 @@ class OrderService:
         
 
     def place_order(self):
+        # Place order function here registers request of print/e-book to different services and once registered keeps log in db of their status with error handling.
 
         line_items = LineItem.objects.filter(order_id=self.order_id)
 

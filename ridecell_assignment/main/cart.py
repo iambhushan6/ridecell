@@ -2,6 +2,9 @@ from main.models import Cart, Product, ProductCategory, User
 from uuid import uuid4
 
 class CartService:
+    '''
+    Handles cart related functionalities: 1. Adding products to cart and updating cart items
+    '''
 
     def __init__(self, user: User) -> None:
         self.user = user

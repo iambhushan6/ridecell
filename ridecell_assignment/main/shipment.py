@@ -4,11 +4,17 @@ from main.order import OrderService
 from django.db import transaction
 
 class ShipmentService:
+    '''
+    This service handles functionalities: 
+    1. Making a request of print/ship item.
+    2. Keeping track of shipment with current system.
+    '''
 
     def __init__(self) -> None:
         pass
 
     def print_and_ship_line_item(self, line_item_id: int):
+        # Function request at 3p for print/ship of book while keeping log in db.
 
         line_item_instance = LineItem.objects.filter(id=line_item_id).select_related('order','user').first()
         user_address = line_item_instance.order.user.address
@@ -37,40 +43,48 @@ class ShipmentService:
         
         return True, "shipment created successfully at 3p"
     
+    def sync_status_accross_shipment_and_order(self, data:dict, shipment:Shipment):
+        # Function verify and maps incoming status with system status and updates lineitem, order, shipment statuses according to preference logic.
+
+        line_item = shipment.line_item
+
+        status = None
+        if data["status"] == Shipment.ShipmentStatuses.PRINTED:
+            status = Shipment.ShipmentStatuses.PRINTED
+        elif data["status"] == Shipment.ShipmentStatuses.IN_TRANSIT:
+            status = Shipment.ShipmentStatuses.IN_TRANSIT
+        elif data["status"] == Shipment.ShipmentStatuses.DELIVERED:
+            status = Shipment.ShipmentStatuses.DELIVERED
+        elif data["status"] == Shipment.ShipmentStatuses.FAILED:
+            status = Shipment.ShipmentStatuses.FAILED
+
+        with transaction.atomic():
+
+            if status:
+                shipment.status = status
+                shipment.save()
+
+            if status == Shipment.ShipmentStatuses.DELIVERED:
+                
+                # sync line item status with shipment status and with order respectively.
+                line_item.status = LineItem.LineItemStatus.COMPLETED
+                line_item.save()
+                OrderService(order_id=shipment.order_id).sync_order_status_with_line_item_statuses()
+
+            return True, "shipment status synced with third party"
+
+    
     def sync_shipment_status_with_3p(self, shipment_id:int):
+        # Function fetches latest status update about shipment from 3p and updates it with current system.
 
         try:
             shipment = Shipment.objects.filter(id=shipment_id).first()
-            line_item = shipment.line_item
 
             if shipment:
                 response = requests.get(f"https://3p-status-traking-link/?identifier={shipment.third_party_identifier}")
 
                 data = response.json()
-                status = None
-                if data["status"] == Shipment.ShipmentStatuses.PRINTED:
-                    status = Shipment.ShipmentStatuses.PRINTED
-                elif data["status"] == Shipment.ShipmentStatuses.IN_TRANSIT:
-                    status = Shipment.ShipmentStatuses.IN_TRANSIT
-                elif data["status"] == Shipment.ShipmentStatuses.DELIVERED:
-                    status = Shipment.ShipmentStatuses.DELIVERED
-                elif data["status"] == Shipment.ShipmentStatuses.FAILED:
-                    status = Shipment.ShipmentStatuses.FAILED
-
-                with transaction.atomic():
-
-                    if status:
-                        shipment.status = status
-                        shipment.save()
-
-                    if status == Shipment.ShipmentStatuses.DELIVERED:
-                        
-                        # sync line item status with shipment status and with order respectively.
-                        line_item.status = LineItem.LineItemStatus.COMPLETED
-                        line_item.save()
-                        OrderService(order_id=shipment.order_id).sync_order_status_with_line_item_statuses()
-
-                    return True, "shipment status synced with third party"
+                return self.sync_status_accross_shipment_and_order(data=data, shipment=shipment)
             else: return False
 
         except Exception as e:
