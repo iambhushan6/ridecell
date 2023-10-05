@@ -25,9 +25,9 @@ class Cart(models.Model):
 class Order(models.Model):
 
     class OrderStatuses(models.TextChoices):
+        CREATED = 'created'
         PLACED = 'placed'
-        SHIPPED = 'shipped'
-        DELIVERED = 'delivered'
+        COMPLETED = 'completed'
         CANCELLED = 'cancelled'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -36,6 +36,34 @@ class Order(models.Model):
     total_price = models.PositiveIntegerField()
     status = models.CharField(max_length=20, choices=OrderStatuses.choices)
     third_party_identifier = models.CharField(max_length=200, null=True, blank=True)    # for 3p order identifier
+
+class LineItem(models.Model):
+
+    class LineItemStatus(models.TextChoices):
+        CREATED = 'created'
+        PROCESSED = 'processed'
+        COMPLETED = 'completed'
+        FAILED = 'failed'
+        CANCELLED = 'cancelled'
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    product_id = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, choices=LineItemStatus.choices)
+
+class LineItemMeta(models.Model):
+
+    class LineItemMetaKeys(models.TextChoices):
+        PRODUCT_ID = 1
+        PRODUCT_NAME = 2
+        PRODUCT_QUANTITY = 3
+        PRODUCT_SELLING_PRICE = 4
+        PRODUCT_CATEGORY_NAME = 5
+    
+    line_item = models.ForeignKey(LineItem, on_delete= models.CASCADE)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    key = models.IntegerField(choices=LineItemMetaKeys.choices)
+    value = models.JSONField(null=True)
 
 
 class PaymentRequest(models.Model):
@@ -50,24 +78,11 @@ class PaymentRequest(models.Model):
     status = models.CharField(max_length=20, choices=PaymentRequestStatus.choices)
 
 
-class OrderMeta(models.Model):
-
-    class OrderMetaKeys(models.TextChoices):
-        PRODUCT_ID = 1
-        PRODUCT_NAME = 2
-        PRODUCT_QUANTITY = 3
-        PRODUCT_SELLING_PRICE = 4
-        PRODUCT_CATEGORY_NAME = 5
-    
-    key = models.IntegerField(choices=OrderMetaKeys.choices)
-    value = models.JSONField(null=True)
-
-
 class Shipment(models.Model):
     
     class ShipmentStatuses(models.TextChoices):
         SHIPPED = 'shipped'
-        PICKED_UP = 'picked_up'
+        PRINTED = 'printed'
         IN_TRANSIT = 'in_transit'
         OUT_FOR_DELIVERY = 'out_for_delivery'
         DELIVERED = 'delivered'
@@ -76,8 +91,9 @@ class Shipment(models.Model):
         LOST = 'lost'
         DAMAGED = 'damaged'
 
-    order = models.OneToOneField(Order, on_delete=models.CASCADE)
-    third_party_identifier = models.CharField(max_length=200)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    line_item = models.OneToOneField(LineItem, on_delete=models.CASCADE)
+    third_party_identifier = models.CharField(max_length=200, null=True)
     status = models.CharField(max_length=20, choices=ShipmentStatuses.choices)
 
 

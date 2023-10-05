@@ -22,4 +22,4 @@ class CartService:
             )
         Cart.objects.bulk_create(carts_to_be_created)
 
-        return True
+        return True, master_cart_uuid
