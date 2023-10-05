@@ -21,8 +21,8 @@ app.config_from_object(settings, namespace='CELERY')
 # Beat Settings
 # Load task modules from all registered Django apps.
 app.conf.beat_schedule = {
-    "fetch-youtube-video-data": {
-        "task" : "main.tasks.scheduled_task_fetch_youtube_video_data",
+    "sync-shipment-statuses": {
+        "task" : "main.tasks.scheduled_task_sync_shipment_statuses_with_third_party",
         "schedule" : 60.0,
         "args" : ()
     }
